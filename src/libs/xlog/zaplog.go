@@ -60,6 +60,7 @@ func newEncoderConfig() zapcore.EncoderConfig {
 	}
 }
 
+// NewZapLogger TODO
 func NewZapLogger(fileName string, encodeAsJSON bool) *zap.Logger {
 	encCfg := newEncoderConfig()
 	var encoder zapcore.Encoder
@@ -81,22 +82,32 @@ func newDefaultLogger() {
 	consoleZapLogger = zap.New(zapcore.NewCore(encoder, os.Stdout, zap.NewAtomicLevel()))
 }
 
+// ZapDebug TODO
 func ZapDebug(msg string, fields ...zapcore.Field) {
 	consoleZapLogger.Debug(msg, fields...)
 	defaultFileZapLogger.Debug(msg, fields...)
 }
 
+// ZapInfo TODO
 func ZapInfo(msg string, fields ...zapcore.Field) {
 	consoleZapLogger.Info(msg, fields...)
 	defaultFileZapLogger.Info(msg, fields...)
 }
 
+// ZapWarn TODO
 func ZapWarn(msg string, fields ...zapcore.Field) {
 	consoleZapLogger.Warn(msg, fields...)
 	defaultFileZapLogger.Warn(msg, fields...)
 }
 
+// ZapError TODO
 func ZapError(msg string, fields ...zapcore.Field) {
 	consoleZapLogger.Error(msg, fields...)
 	defaultFileZapLogger.Error(msg, fields...)
+}
+
+// ZapSync TODO
+func ZapSync() {
+	consoleZapLogger.Sync()
+	defaultFileZapLogger.Sync()
 }

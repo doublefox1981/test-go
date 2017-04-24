@@ -22,6 +22,7 @@
 package lumberjack
 
 import (
+	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -36,6 +37,7 @@ import (
 const (
 	backupTimeFormat = "2006-01-02T15-04-05.000"
 	defaultMaxSize   = 100
+	defaultBufioSize = 256 * 1024
 )
 
 // ensure we always implement io.WriteCloser
@@ -102,7 +104,9 @@ type Logger struct {
 
 	size int64
 	file *os.File
-	mu   sync.Mutex
+	bufw *bufio.Writer
+
+	mu sync.Mutex
 }
 
 var (
@@ -145,10 +149,22 @@ func (l *Logger) Write(p []byte) (n int, err error) {
 		}
 	}
 
-	n, err = l.file.Write(p)
+	n, err = l.bufw.Write(p)
 	l.size += int64(n)
 
 	return n, err
+}
+
+// Sync flushes all pending I/O
+func (l *Logger) Sync() error {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.file == nil || l.bufw == nil {
+		return nil
+	}
+	l.bufw.Flush()
+	err := l.file.Close()
+	return err
 }
 
 // Close implements io.Closer, and closes the current logfile.
@@ -160,9 +176,10 @@ func (l *Logger) Close() error {
 
 // close closes the file if it is open.
 func (l *Logger) close() error {
-	if l.file == nil {
+	if l.file == nil || l.bufw == nil {
 		return nil
 	}
+	l.bufw.Flush()
 	err := l.file.Close()
 	l.file = nil
 	return err
@@ -227,6 +244,7 @@ func (l *Logger) openNew() error {
 		return fmt.Errorf("can't open new logfile: %s", err)
 	}
 	l.file = f
+	l.bufw = bufio.NewWriterSize(l.file, defaultBufioSize)
 	l.size = 0
 	return nil
 }
@@ -272,6 +290,7 @@ func (l *Logger) openExistingOrNew(writeLen int) error {
 		return l.openNew()
 	}
 	l.file = file
+	l.bufw = bufio.NewWriterSize(l.file, defaultBufioSize)
 	l.size = info.Size()
 	return nil
 }

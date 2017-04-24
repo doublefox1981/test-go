@@ -10,6 +10,7 @@ import (
 
 var (
 	std          *log.Logger
+	stdWriter    *lumberjack.Logger
 	logToConsole = true
 	logLevel     = offLog
 )
@@ -49,16 +50,17 @@ func init() {
 		panic("make dir logs")
 	}
 
-	lw := &lumberjack.Logger{
+	stdWriter = &lumberjack.Logger{
 		Filename:   fname,
 		MaxSize:    100,
 		MaxBackups: 1000,
 		MaxAge:     1,
 	}
 
-	std = log.New(lw, "", log.LstdFlags)
+	std = log.New(stdWriter, "", log.LstdFlags)
 }
 
+// Debug TODO
 func Debug(v ...interface{}) {
 	if logLevel > debugLog {
 		return
@@ -69,6 +71,7 @@ func Debug(v ...interface{}) {
 	}
 }
 
+// Info TODO
 func Info(v ...interface{}) {
 	if logLevel > infoLog {
 		return
@@ -79,6 +82,7 @@ func Info(v ...interface{}) {
 	}
 }
 
+// Warn TODO
 func Warn(v ...interface{}) {
 	if logLevel > warnLog {
 		return
@@ -89,6 +93,7 @@ func Warn(v ...interface{}) {
 	}
 }
 
+// Error TODO
 func Error(v ...interface{}) {
 	if logLevel > errorLog {
 		return
@@ -99,6 +104,7 @@ func Error(v ...interface{}) {
 	}
 }
 
+// Fatal TODO
 func Fatal(v ...interface{}) {
 	if logLevel > fatalLog {
 		return
@@ -107,4 +113,9 @@ func Fatal(v ...interface{}) {
 	if logToConsole {
 		log.Print(logName[fatalLog], v)
 	}
+}
+
+// Sync TODO
+func Sync() error {
+	return stdWriter.Sync()
 }
