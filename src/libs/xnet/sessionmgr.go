@@ -1,6 +1,7 @@
 package xnet
 
 import (
+	"net"
 	"sync"
 )
 
@@ -9,6 +10,7 @@ const bucketNum = 32
 // SessionMgr TODO
 type SessionMgr struct {
 	pods [bucketNum]sessionPod
+	svr  *Server
 }
 
 type sessionPod struct {
@@ -17,8 +19,8 @@ type sessionPod struct {
 }
 
 // NewSessionMgr TODO
-func NewSessionMgr() *SessionMgr {
-	m := &SessionMgr{}
+func NewSessionMgr(svr *Server) *SessionMgr {
+	m := &SessionMgr{svr: svr}
 	for i := 0; i < len(m.pods); i++ {
 		m.pods[i].sessions = make(map[uint64]*Session)
 	}
@@ -26,8 +28,8 @@ func NewSessionMgr() *SessionMgr {
 }
 
 // CreateSession TODO
-func (m *SessionMgr) CreateSession(codec Codec) *Session {
-	c := newSession(m, codec)
+func (m *SessionMgr) CreateSession(conn net.Conn, codec Codec, sndChanSize int) *Session {
+	c := newSession(m, conn, codec, sndChanSize)
 	pod := &m.pods[c.id%bucketNum]
 	pod.Lock()
 	defer pod.Unlock()

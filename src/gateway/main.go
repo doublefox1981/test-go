@@ -3,34 +3,58 @@ package main
 import (
 	"libs/xlog"
 	"libs/xnet"
-	"sync"
-	"time"
+	"pb"
 
-	"go.uber.org/zap"
+	"reflect"
+
+	"fmt"
+
+	"github.com/gogo/protobuf/proto"
 )
 
-func main() {
-	itemLogger := xlog.NewZapLogger("item.json", true)
-	t1 := time.Now()
-	var wg sync.WaitGroup
-	for i := 0; i < 10; i++ {
-		wg.Add(1)
-		go func() {
-			for j := 0; j < 1; j++ {
-				itemLogger.Info("item", zap.String("field1", "11111"), zap.Int32("field2", 2))
-				xlog.ZapInfo("exp", zap.String("field1", "11111"), zap.Int32("field2", 2))
-			}
-			wg.Done()
-		}()
-	}
-	wg.Wait()
-	t2 := time.Now()
-	xlog.Info(t2.Sub(t1))
+func onConnect(s *xnet.Session) bool {
+	xlog.Info(fmt.Sprintf("new session, id=%d, %s", s.ID(), s.RemoteAddr()))
+	return true
+}
 
+func onDisconnect(s *xnet.Session) {
+	xlog.Info(fmt.Sprintf("close session, id=%d, %s", s.ID(), s.RemoteAddr()))
+}
+
+func onMsg(s *xnet.Session, p *xnet.Packet) {
+	if p.Cmd == 1 {
+		r := &pb.Ask{}
+		r.A = "a"
+		r.B = 1
+		s.Send(r, p.Seq)
+		xlog.Info(p.Cmd, p.Len, p.Seq)
+	}
+}
+
+func main() {
+	r := pb.Ask{}
+	t1 := reflect.TypeOf(r)
+	t2 := reflect.TypeOf(&r)
+	m := make(map[reflect.Type]int)
+	m[t2] = 1
+	t3 := reflect.TypeOf((*pb.Ask)(nil))
+	f, ok := m[t3]
+	eq := (t2 == t3)
+	xlog.Info(proto.MessageName(&r), t1, t2, t3, eq, f, ok)
+	defer func() {
+		xlog.Sync()
+		xlog.ZapSync()
+	}()
 	protocol := xnet.Protobuf(4096)
-	s := xnet.NewTCPServer("0.0.0.0:12315", protocol)
+	protocol.RegisterPB(1, (*pb.Ask)(nil), func() interface{} {
+		return &pb.Ask{}
+	})
+	s := xnet.NewTCPServer("0.0.0.0:12315", protocol, 32)
 	if s == nil {
 		return
 	}
+	s.SetOnConnect(onConnect)
+	s.SetOnDisconnect(onDisconnect)
+	s.SetOnMsg(onMsg)
 	s.Serve()
 }
