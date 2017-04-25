@@ -72,7 +72,12 @@ func (s *Server) ServeOne(c *Session) {
 	}
 }
 
-//
+// SetOnConnect TODO
 func (s *Server) SetOnConnect(f func(c net.Conn) bool) {
 	s.onConnect = f
+}
+
+//
+func (s *Server) SetMsgHandler(f func(c *Session, p *Packet)) {
+	s.msgHandler = f
 }

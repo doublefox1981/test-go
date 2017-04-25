@@ -4,19 +4,22 @@ import (
 	"io"
 )
 
+// Packet TODO
 type Packet struct {
-	len uint16
-	cmd uint16
-	seq uint32
-	msg interface{}
+	Len uint32
+	Cmd uint32
+	Seq uint32
+	Msg interface{}
 }
 
+// Codec TODO
 type Codec interface {
 	Receive() (*Packet, error)
-	Send(interface{}) error
+	Send(interface{}, uint32) error
 	Close() error
 }
 
+// Protocol TODO
 type Protocol interface {
 	NewCodec(rw io.ReadWriteCloser) Codec
 	GetPacket() *Packet

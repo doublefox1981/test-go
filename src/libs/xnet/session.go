@@ -36,6 +36,6 @@ func (c *Session) Close() error {
 }
 
 // Send TODO
-func (c *Session) Send(p interface{}) error {
-	return c.codec.Send(p)
+func (c *Session) Send(p interface{}, seq uint32) error {
+	return c.codec.Send(p, seq)
 }

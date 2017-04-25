@@ -12,6 +12,11 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
+type pbPacketLenType uint16
+
+// PBCmdType TODO
+type PBCmdType uint16
+
 const (
 	headLen = 8
 )
@@ -28,11 +33,11 @@ var (
 )
 
 // Protobuf TODO
-func Protobuf(n int) *PBProtocol {
+func Protobuf(n uint32) *PBProtocol {
 	return &PBProtocol{
 		maxPacketLen: n,
-		pbPool:       make(map[uint16]*sync.Pool),
-		pbCmd:        make(map[reflect.Type]uint16),
+		pbPool:       make(map[PBCmdType]*sync.Pool),
+		pbCmd:        make(map[reflect.Type]PBCmdType),
 		packetPool: &sync.Pool{
 			New: func() interface{} {
 				return &Packet{}
@@ -43,9 +48,9 @@ func Protobuf(n int) *PBProtocol {
 
 // PBProtocol TODO
 type PBProtocol struct {
-	maxPacketLen int
-	pbPool       map[uint16]*sync.Pool
-	pbCmd        map[reflect.Type]uint16
+	maxPacketLen uint32
+	pbPool       map[PBCmdType]*sync.Pool
+	pbCmd        map[reflect.Type]PBCmdType
 	packetPool   *sync.Pool
 }
 
@@ -55,7 +60,7 @@ func (p *PBProtocol) NewCodec(rw io.ReadWriteCloser) Codec {
 	return &PBCodec{
 		protocol: p,
 		conn:     rw,
-		br:       bufio.NewReaderSize(rw, p.maxPacketLen+headLen),
+		br:       bufio.NewReaderSize(rw, int(p.maxPacketLen+headLen)),
 		wbuf:     wb,
 		pbbuf:    proto.NewBuffer(wb[headLen:]),
 	}
@@ -74,7 +79,7 @@ func (p *PBProtocol) PutPacket(pack *Packet) {
 type pBMsgCtor func() interface{}
 
 // RegisterPB TODO
-func (p *PBProtocol) RegisterPB(cmd uint16, pbm proto.Message, ctor pBMsgCtor) {
+func (p *PBProtocol) RegisterPB(cmd PBCmdType, pbm proto.Message, ctor pBMsgCtor) {
 	p.pbPool[cmd] = &sync.Pool{
 		New: ctor,
 	}
@@ -82,7 +87,7 @@ func (p *PBProtocol) RegisterPB(cmd uint16, pbm proto.Message, ctor pBMsgCtor) {
 }
 
 // CreatePB TODO
-func (p *PBProtocol) CreatePB(cmd uint16) interface{} {
+func (p *PBProtocol) CreatePB(cmd PBCmdType) interface{} {
 	v, ok := p.pbPool[cmd]
 	if ok {
 		return v.Get()
@@ -119,18 +124,18 @@ func (c *PBCodec) Receive() (*Packet, error) {
 		return nil, err
 	}
 	pack := c.protocol.GetPacket()
-	pack.len = binary.BigEndian.Uint16(c.rhead)
-	if int(pack.len) > c.protocol.maxPacketLen {
+	pack.Len = uint32(binary.BigEndian.Uint16(c.rhead))
+	if pack.Len > c.protocol.maxPacketLen {
 		return nil, ErrPacketSize
 	}
-	pack.cmd = binary.BigEndian.Uint16(c.rhead[2:])
-	p := c.protocol.CreatePB(pack.cmd)
+	pack.Cmd = uint32(binary.BigEndian.Uint16(c.rhead[2:]))
+	p := c.protocol.CreatePB(PBCmdType(pack.Cmd))
 	if p == nil {
 		return nil, ErrPacketCMD
 	}
 	pm := p.(proto.Message)
-	pack.seq = binary.BigEndian.Uint32(c.rhead[4:])
-	c.body, err = c.readFull(int(pack.len) - headLen)
+	pack.Seq = binary.BigEndian.Uint32(c.rhead[4:])
+	c.body, err = c.readFull(int(pack.Len) - headLen)
 	if err != nil {
 		return nil, err
 	}
@@ -138,26 +143,21 @@ func (c *PBCodec) Receive() (*Packet, error) {
 	if err != nil {
 		return nil, err
 	}
-	pack.msg = pm
+	pack.Msg = pm
 	return pack, nil
 }
 
 // Send TODO
-func (c *PBCodec) Send(p interface{}) error {
+func (c *PBCodec) Send(p interface{}, seq uint32) error {
 	type marshalToer interface {
 		MarshalTo(dAtA []byte) (int, error)
 	}
 	var (
 		ok  bool
-		pm  proto.Message
 		m   marshalToer
-		cmd uint16
+		cmd PBCmdType
 	)
-	pm, ok = p.(proto.Message)
-	if !ok {
-		return ErrUnmarshal
-	}
-	cmd, ok = c.protocol.pbCmd[reflect.TypeOf(pm)]
+	cmd, ok = c.protocol.pbCmd[reflect.TypeOf(p)]
 	if !ok {
 		return ErrUnregister
 	}
@@ -170,9 +170,14 @@ func (c *PBCodec) Send(p interface{}) error {
 		return err
 	}
 	binary.BigEndian.PutUint16(c.wbuf[0:2], uint16(headLen+i))
-	binary.BigEndian.PutUint16(c.wbuf[2:4], cmd)
-	c.seq++
-	binary.BigEndian.PutUint32(c.wbuf[4:8], c.seq)
+	binary.BigEndian.PutUint16(c.wbuf[2:4], uint16(cmd))
+	if seq != 0 {
+		binary.BigEndian.PutUint32(c.wbuf[4:8], seq)
+	} else {
+		c.seq++
+		binary.BigEndian.PutUint32(c.wbuf[4:8], c.seq)
+	}
+
 	_, err = c.conn.Write(c.wbuf[:headLen+i])
 	return err
 }
