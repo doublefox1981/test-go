@@ -18,5 +18,7 @@ type Codec interface {
 }
 
 type Protocol interface {
-	NewCodec(rw io.ReadWriteCloser) (Codec, error)
+	NewCodec(rw io.ReadWriteCloser) Codec
+	GetPacket() *Packet
+	PutPacket(p *Packet)
 }

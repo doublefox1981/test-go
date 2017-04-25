@@ -8,9 +8,11 @@ import (
 
 // Server TODO
 type Server struct {
-	listener net.Listener
-	protocol Protocol
-	mgr      *ClientMgr
+	listener   net.Listener
+	protocol   Protocol
+	mgr        *SessionMgr
+	onConnect  func(c net.Conn) bool
+	msgHandler func(c *Session, p *Packet)
 }
 
 // NewTCPServer TODO
@@ -24,7 +26,7 @@ func NewTCPServer(addr string, proto Protocol) *Server {
 	return &Server{
 		listener: l,
 		protocol: proto,
-		mgr:      NewClientMgr(),
+		mgr:      NewSessionMgr(),
 	}
 }
 
@@ -36,19 +38,26 @@ func (s *Server) Serve() {
 			xlog.Error(fmt.Sprintf("accept error on : %s, error : %v", s.listener.Addr().String(), err))
 			return
 		}
-
-		codec, err := s.protocol.NewCodec(conn)
+		var b = true
+		if s.onConnect != nil {
+			b = s.onConnect(conn)
+			if !b {
+				conn.Close()
+				continue
+			}
+		}
+		codec := s.protocol.NewCodec(conn)
 		if err != nil {
 			conn.Close()
 			continue
 		}
-		c := s.mgr.CreateClient(codec)
+		c := s.mgr.CreateSession(codec)
 		go s.ServeOne(c)
 	}
 }
 
 // ServeOne TODO
-func (s *Server) ServeOne(c *Client) {
+func (s *Server) ServeOne(c *Session) {
 	for {
 		p, err := c.Receive()
 		if err != nil {
@@ -56,6 +65,14 @@ func (s *Server) ServeOne(c *Client) {
 			c.Close()
 			return
 		}
-		xlog.Info(p)
+		if s.msgHandler != nil {
+			s.msgHandler(c, p)
+		}
+		s.protocol.PutPacket(p)
 	}
+}
+
+//
+func (s *Server) SetOnConnect(f func(c net.Conn) bool) {
+	s.onConnect = f
 }
