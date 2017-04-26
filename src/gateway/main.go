@@ -5,11 +5,7 @@ import (
 	"libs/xnet"
 	"pb"
 
-	"reflect"
-
 	"fmt"
-
-	"github.com/gogo/protobuf/proto"
 )
 
 func onConnect(s *xnet.Session) bool {
@@ -32,15 +28,6 @@ func onMsg(s *xnet.Session, p *xnet.Packet) {
 }
 
 func main() {
-	r := pb.Ask{}
-	t1 := reflect.TypeOf(r)
-	t2 := reflect.TypeOf(&r)
-	m := make(map[reflect.Type]int)
-	m[t2] = 1
-	t3 := reflect.TypeOf((*pb.Ask)(nil))
-	f, ok := m[t3]
-	eq := (t2 == t3)
-	xlog.Info(proto.MessageName(&r), t1, t2, t3, eq, f, ok)
 	defer func() {
 		xlog.Sync()
 		xlog.ZapSync()

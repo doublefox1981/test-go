@@ -55,6 +55,9 @@ func (c *Session) RemoteAddr() string {
 
 // Receive TODO
 func (c *Session) Receive() (*Packet, error) {
+	if c.isClosed() {
+		return nil, ErrSessionClosed
+	}
 	return c.codec.Receive()
 }
 
@@ -63,12 +66,10 @@ func (c *Session) Close() error {
 	if atomic.CompareAndSwapInt32(&c.closed, 0, 1) {
 		err := c.codec.Close()
 		close(c.closeChan)
-		if c.mgr != nil {
-			if c.mgr.svr.onDisconnect != nil {
-				c.mgr.svr.onDisconnect(c)
-			}
-			c.mgr.DeleteSession(c)
+		if c.mgr.svr.onDisconnect != nil {
+			c.mgr.svr.onDisconnect(c)
 		}
+		c.mgr.DeleteSession(c)
 		return err
 	}
 
@@ -83,10 +84,9 @@ func (c *Session) Send(p interface{}, seq uint32) error {
 	if c.sendChan == nil {
 		return c.codec.Send(p, seq)
 	}
-	pack := &Packet{
-		Seq: seq,
-		Msg: p,
-	}
+	pack := c.mgr.svr.protocol.GetPacket()
+	pack.Seq = seq
+	pack.Msg = p
 
 	c.sendChan <- pack
 	return nil
@@ -98,9 +98,13 @@ func (c *Session) sender() {
 		select {
 		case pack := <-c.sendChan:
 			if err := c.codec.Send(pack.Msg, pack.Seq); err != nil {
+				if c.mgr != nil {
+					c.mgr.svr.protocol.PutPacket(pack)
+				}
 				xlog.Info(err)
 				return
 			}
+			c.mgr.svr.protocol.PutPacket(pack)
 		case <-c.closeChan:
 			return
 		}
