@@ -1,11 +1,20 @@
 package main
 
 import (
+	"fmt"
 	"libs/xlog"
 	"libs/xnet"
+	"libs/xprofile"
+	"net/http"
+	"os"
+	"os/signal"
 	"pb"
 
-	"fmt"
+	_ "net/http/pprof"
+
+	"flag"
+
+	_ "github.com/mkevac/debugcharts"
 )
 
 func onConnect(s *xnet.Session) bool {
@@ -27,11 +36,23 @@ func onMsg(s *xnet.Session, p *xnet.Packet) {
 	}
 }
 
+func signalf() {
+	c := make(chan os.Signal)
+	signal.Notify(c, os.Interrupt)
+	for {
+		s := <-c
+		fmt.Println("signal", s)
+		break
+	}
+}
+
 func main() {
+	flag.Parse()
 	defer func() {
 		xlog.Sync()
 		xlog.ZapSync()
 	}()
+	defer xprofile.Start().Stop()
 	protocol := xnet.Protobuf(4096)
 	protocol.RegisterPB(1, (*pb.Ask)(nil), func() interface{} {
 		return &pb.Ask{}
@@ -43,5 +64,9 @@ func main() {
 	s.SetOnConnect(onConnect)
 	s.SetOnDisconnect(onDisconnect)
 	s.SetOnMsg(onMsg)
-	s.Serve()
+	go func() {
+		xlog.Info(http.ListenAndServe("0.0.0.0:6060", nil))
+	}()
+	go s.Serve()
+	signalf()
 }
