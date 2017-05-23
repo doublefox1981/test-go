@@ -1,0 +1,27 @@
+hash: b7f227dbc11da0db10b8cb8a7a22bfeb8185952084bb748d52fc35f768208c9f
+updated: 2017-05-23T10:44:08.0068909+08:00
+imports:
+- name: github.com/gogo/protobuf
+  version: 100ba4e885062801d56799d78530b73b178a78f3
+  subpackages:
+  - gogoproto
+  - proto
+  - protoc-gen-gogo/descriptor
+- name: github.com/golang/protobuf
+  version: a4e8f93323fcf2bc1ae5c036dc4d973872057936
+  subpackages:
+  - proto
+- name: github.com/Shopify/sarama
+  version: c01858abb625b73a3af51d0798e4ad42c8147093
+- name: go.uber.org/atomic
+  version: 4e336646b2ef9fc6e47be8e21594178f98e5ebcf
+- name: go.uber.org/zap
+  version: fab453050a7a08c35f31fc5fff6f2dbd962285ab
+  subpackages:
+  - buffer
+  - internal/bufferpool
+  - internal/color
+  - internal/exit
+  - internal/multierror
+  - zapcore
+testImports: []

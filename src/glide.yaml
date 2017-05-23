@@ -1,0 +1,15 @@
+package: .
+import:
+- package: github.com/gogo/protobuf
+  version: v0.4
+  subpackages:
+  - gogoproto
+- package: github.com/golang/protobuf
+  subpackages:
+  - proto
+- package: go.uber.org/zap
+  version: v1.4.0
+  subpackages:
+  - zapcore
+- package: github.com/Shopify/sarama
+  version: v1.12.0
